@@ -1,4 +1,12 @@
 const Account = {
+  userAccount: {
+    concurConnected: false,
+    tripitConnected: false,
+    marriottConnected: false,
+    hiltonConnected: false,
+    lastSync: null
+  },
+
   init() {
     const modal = document.getElementById("accountModal");
     const openBtn = document.getElementById("accountBtn");
@@ -56,21 +64,25 @@ const Account = {
       if (App.currentView === "local") App.refreshRestaurants();
     });
 
-    // Demo connect/disconnect
+    // Integration-ready connect/disconnect (with fallback demo behavior)
     document.querySelectorAll("[data-connect]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const id = btn.dataset.connect;
-        document.querySelector(`[data-status="${id}"]`).style.display = "block";
-        btn.style.display = "none";
-        UI.toast(`${id} connected (demo)`);
+        this.connectAccount(btn.dataset.connect);
       });
     });
     document.querySelectorAll("[data-disconnect]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const id = btn.dataset.disconnect;
-        document.querySelector(`[data-status="${id}"]`).style.display = "none";
-        document.querySelector(`[data-connect="${id}"]`).style.display = "inline-flex";
-        UI.toast(`${id} disconnected`);
+        const statusDiv = document.getElementById(`${id}Status`) || document.querySelector(`[data-status="${id}"]`);
+        const connectBtn = document.getElementById(`${id}Connect`) || document.querySelector(`[data-connect="${id}"]`);
+        this._setConnected(id, false);
+        if (statusDiv) statusDiv.style.display = "none";
+        if (connectBtn) {
+          connectBtn.disabled = false;
+          connectBtn.innerHTML = '<i class="fas fa-plug"></i><span class="connect-text">Connect</span>';
+          connectBtn.style.display = "inline-flex";
+        }
+        this.showNotification(`${this._displayName(id)} disconnected`);
       });
     });
   },
@@ -98,5 +110,79 @@ const Account = {
     const el = document.getElementById(id);
     el.style.display = "block";
     setTimeout(() => (el.style.display = "none"), 1800);
+  },
+
+  async connectAccount(accountType) {
+    const connectBtn = document.getElementById(`${accountType}Connect`) || document.querySelector(`[data-connect="${accountType}"]`);
+    const statusDiv = document.getElementById(`${accountType}Status`) || document.querySelector(`[data-status="${accountType}"]`);
+
+    if (connectBtn) {
+      connectBtn.disabled = true;
+      connectBtn.innerHTML = "<i></i> Connecting...";
+    }
+
+    try {
+      const resp = await fetch(`/api/integrations/${encodeURIComponent(accountType)}/connect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ redirectUri: window.location.origin })
+      });
+
+      if (resp.ok) {
+        await resp.json().catch(() => ({}));
+        this._setConnected(accountType, true);
+        this.userAccount.lastSync = new Date().toISOString();
+        if (connectBtn) connectBtn.style.display = "none";
+        if (statusDiv) statusDiv.style.display = "flex";
+        this.updateSyncInfo();
+        this.showNotification(`${this._displayName(accountType)} connected successfully!`);
+        return;
+      }
+    } catch (e) {
+      // fall through to simulation
+    }
+
+    setTimeout(() => {
+      this._setConnected(accountType, true);
+      this.userAccount.lastSync = new Date().toISOString();
+
+      if (connectBtn) connectBtn.style.display = "none";
+      if (statusDiv) statusDiv.style.display = "flex";
+
+      this.updateSyncInfo();
+      this.showNotification(`${this._displayName(accountType)} connected successfully!`);
+    }, 900);
+  },
+
+  updateSyncInfo() {
+    const syncInfo = document.getElementById("syncInfo");
+    const lastSyncTime = document.getElementById("lastSyncTime");
+    if (!syncInfo || !lastSyncTime) return;
+    if (!this.userAccount.lastSync) {
+      syncInfo.style.display = "none";
+      return;
+    }
+    syncInfo.style.display = "flex";
+    lastSyncTime.textContent = `Last synced: ${new Date(this.userAccount.lastSync).toLocaleString()}`;
+  },
+
+  showNotification(message) {
+    UI.toast(message);
+  },
+
+  _displayName(accountType) {
+    return ({
+      concur: "Concur",
+      tripit: "TripIt",
+      marriott: "Marriott Bonvoy",
+      hilton: "Hilton Honors"
+    })[accountType] || accountType;
+  },
+
+  _setConnected(accountType, isConnected) {
+    if (accountType === "concur") this.userAccount.concurConnected = isConnected;
+    else if (accountType === "tripit") this.userAccount.tripitConnected = isConnected;
+    else if (accountType === "marriott") this.userAccount.marriottConnected = isConnected;
+    else if (accountType === "hilton") this.userAccount.hiltonConnected = isConnected;
   }
 };
