@@ -4,6 +4,7 @@ const UI = {
   preset: "client_dinner",
   collapsedSidebar: false,
   _noteTargetId: null,
+  _searchDebounceTimer: null,
 
   init() {
     // Sidebar collapse
@@ -37,10 +38,19 @@ const UI = {
 
     // Filters
     const rerender = () => this.applyFilters();
-    ["searchInput","cuisineFilter","priceFilter","ambianceFilter","sortBy","visitedFilter","openNowFilter"]
+    const searchInput = document.getElementById("searchInput");
+    if (searchInput) {
+      searchInput.addEventListener("input", () => {
+        clearTimeout(this._searchDebounceTimer);
+        this._searchDebounceTimer = setTimeout(() => {
+          this.applyFilters();
+        }, 120);
+      });
+    }
+    ["cuisineFilter","priceFilter","ambianceFilter","sortBy","visitedFilter","openNowFilter"]
       .forEach(id => {
         const el = document.getElementById(id);
-        el.addEventListener(id === "searchInput" ? "input" : "change", rerender);
+        el.addEventListener("change", rerender);
       });
 
     // Quick chips
@@ -142,11 +152,7 @@ const UI = {
     if (visitedOnly) out = out.filter(r => !!r.visited);
     if (openNowOnly) out = out.filter(r => r.open_now === true);
 
-    // Sorting
-    if (sortBy === "client_score") out.sort((a,b) => (b.clientScore || 0) - (a.clientScore || 0));
-    if (sortBy === "rating") out.sort((a,b) => (b.rating || 0) - (a.rating || 0));
-    if (sortBy === "distance") out.sort((a,b) => (a.distance || 0) - (b.distance || 0));
-    if (sortBy === "review_count") out.sort((a,b) => (b.review_count || 0) - (a.review_count || 0));
+    this.sortRestaurants(out, sortBy);
 
     // If in “client dinner” mode, bias by client score even if user didn't select
     if (this.preset === "client_dinner" && sortBy !== "client_score") {
@@ -157,6 +163,53 @@ const UI = {
     this.renderList(out);
     MapModule.addRestaurantMarkers(out);
     this.updateShortlistBar();
+  },
+
+  sortRestaurants(restaurants, sortBy) {
+    const plan = (window.DinnerPlan && DinnerPlan.state) ? DinnerPlan.state : null;
+
+    const score = (r) => {
+      let s = (Number(r.rating) || 0) * 10;
+      const dist = Number(r.distance) || 999999;
+      s += Math.max(0, 20 - dist / 250);
+
+      if (plan) {
+        const price = (r.price || "").length;
+        if (plan.budget === "low") s += price <= 2 ? 8 : -4;
+        if (plan.budget === "mid") s += price === 2 ? 8 : -2;
+        if (plan.budget === "high") s += price >= 3 ? 8 : -1;
+
+        const cats = (r.categories || []).map((c) => (c.title || "").toLowerCase()).join(" ");
+        const tags = (r.tags || []).join(" ").toLowerCase();
+        const hay = `${cats} ${tags} ${(r.name || "").toLowerCase()}`;
+
+        if (plan.vibe === "business") s += hay.includes("steak") || hay.includes("wine") ? 4 : 0;
+        if (plan.vibe === "quiet") s += hay.includes("bistro") || hay.includes("sushi") ? 3 : 0;
+        if (plan.vibe === "lively") s += hay.includes("bar") || hay.includes("tapas") ? 3 : 0;
+        if (plan.vibe === "solo") s += hay.includes("ramen") || hay.includes("counter") ? 3 : 0;
+        if (plan.vibe === "celebratory") s += hay.includes("cocktail") ? 3 : 0;
+
+        if (r.visited) s += 1;
+      }
+
+      return s;
+    };
+
+    switch (sortBy) {
+      case "client_score":
+        restaurants.sort((a, b) => (b.clientScore || 0) - (a.clientScore || 0));
+        break;
+      case "distance":
+        restaurants.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+        break;
+      case "review_count":
+        restaurants.sort((a, b) => (b.review_count || 0) - (a.review_count || 0));
+        break;
+      case "rating":
+      default:
+        restaurants.sort((a, b) => score(b) - score(a));
+        break;
+    }
   },
 
   renderList(restaurants) {
