@@ -51,8 +51,9 @@ const Account = {
       };
       Storage.set(CONFIG.STORAGE_KEYS.SETTINGS, settings);
       this._flash("settingsSavedMsg");
-      UI.toast("Settings saved", "ok");
+      UI.toast("Settings saved");
       App.refreshProviderBadge();
+      if (App.currentView === "local") App.refreshRestaurants();
     });
 
     // Demo connect/disconnect
@@ -61,7 +62,7 @@ const Account = {
         const id = btn.dataset.connect;
         document.querySelector(`[data-status="${id}"]`).style.display = "block";
         btn.style.display = "none";
-        UI.toast(`${id} connected (demo)`, "ok");
+        UI.toast(`${id} connected (demo)`);
       });
     });
     document.querySelectorAll("[data-disconnect]").forEach((btn) => {
@@ -69,7 +70,7 @@ const Account = {
         const id = btn.dataset.disconnect;
         document.querySelector(`[data-status="${id}"]`).style.display = "none";
         document.querySelector(`[data-connect="${id}"]`).style.display = "inline-flex";
-        UI.toast(`${id} disconnected`, "warn");
+        UI.toast(`${id} disconnected`);
       });
     });
   },
@@ -81,9 +82,7 @@ const Account = {
     document.getElementById("userPhone").value = profile.phone || "";
 
     const settings = Storage.get(CONFIG.STORAGE_KEYS.SETTINGS, {
-      textAlerts: true,
-      emailAlerts: true,
-      dealAlerts: false,
+      textAlerts: true, emailAlerts: true, dealAlerts: false,
       radius: CONFIG.DEFAULT_RADIUS_METERS,
       provider: CONFIG.PROVIDERS.GOOGLE
     });
