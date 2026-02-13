@@ -6,14 +6,16 @@ const CONFIG = {
   DEFAULT_ZOOM: 13,
 
   SEARCH_LIMIT: 20,
-  DEFAULT_RADIUS_METERS: 8047, // 5 miles
+  DEFAULT_RADIUS_METERS: 8047,
 
   STORAGE_KEYS: {
     PROFILE: "onthego_profile",
     SETTINGS: "onthego_settings",
     VISITED: "onthego_visited",
     TRIPS: "onthego_trips",
-    LAST_SEARCH: "onthego_last_search"
+    LAST_SEARCH: "onthego_last_search",
+    NOTES: "onthego_notes",
+    SHORTLIST: "onthego_shortlist"
   },
 
   PROVIDERS: {
@@ -24,10 +26,10 @@ const CONFIG = {
   GOOGLE_PROXY: {
     NEARBY: "/api/places/nearby",
     TEXT_SEARCH: "/api/places/textSearch",
-    PHOTO: "/api/places/photo"
+    PHOTO: "/api/places/photo",
+    ROUTES: "/api/routes"
   },
 
-  // Simple starter trips (used if none exist yet)
   SAMPLE_TRIPS: [
     {
       id: "trip_sf",
