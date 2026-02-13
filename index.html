@@ -28,21 +28,28 @@
     </div>
 
     <div class="header-actions">
+      <button id="shareBtn" class="view-toggle-btn" title="Share my shortlist">
+        <i class="fas fa-share-nodes"></i>
+        <span>Share</span>
+      </button>
+
       <button id="viewToggle" class="view-toggle-btn" title="Switch View">
         <i class="fas fa-list"></i>
         <span>Restaurant List</span>
       </button>
+
       <button id="travelLogBtn" class="view-toggle-btn" title="My Travel Log">
         <i class="fas fa-book"></i>
         <span>My Travel Log</span>
       </button>
+
       <button id="accountBtn" class="account-btn" title="Account Settings">
         <i class="fas fa-user-circle"></i>
       </button>
     </div>
   </header>
 
-  <!-- Account Modal (kept from your structure; logic handled in account.js) -->
+  <!-- Account Modal -->
   <div id="accountModal" class="modal" style="display:none;">
     <div class="modal-content">
       <span class="close">&times;</span>
@@ -172,7 +179,7 @@
                 <option value="google" selected>Google Places (recommended)</option>
                 <option value="mock">Demo Data (offline)</option>
               </select>
-              <small class="muted">Google Places requires the included proxy server.</small>
+              <small class="muted">Google Places + Routes use the included proxy server.</small>
             </div>
           </div>
         </div>
@@ -185,24 +192,50 @@
     </div>
   </div>
 
+  <!-- Notes Modal -->
+  <div id="noteModal" class="modal" style="display:none;">
+    <div class="modal-content note-modal">
+      <span class="close" id="noteModalClose">&times;</span>
+      <h2><i class="fas fa-note-sticky"></i> Notes</h2>
+      <p id="noteModalSubtitle" class="modal-description"></p>
+
+      <textarea id="noteTextarea" class="form-input note-textarea" rows="7"
+                placeholder="Add quick notes (e.g., 'Quiet booth near back, great for client dinner')"></textarea>
+
+      <div class="note-actions">
+        <button id="saveNoteBtn" class="save-profile-btn"><i class="fas fa-save"></i> Save Note</button>
+        <button id="toggleShortlistBtn" class="btn-tertiary" type="button">
+          <i class="fas fa-star"></i> Add to Shortlist
+        </button>
+        <button id="calendarBtn" class="btn-secondary" type="button">
+          <i class="fas fa-calendar-plus"></i> Add to Calendar
+        </button>
+      </div>
+
+      <div id="noteSavedMsg" class="profile-saved-msg" style="display:none;">
+        <i class="fas fa-check-circle"></i> Note saved!
+      </div>
+    </div>
+  </div>
+
   <!-- Main Container -->
   <main class="container" id="mainContainer">
-    <!-- World Map View (Landing) -->
+    <!-- World View (Landing) -->
     <div id="worldView" class="world-view">
       <div class="world-map-wrap">
         <div id="worldMap" class="world-map"></div>
 
-        <!-- Landing Hero Overlay -->
         <div class="hero-overlay">
           <div class="hero-card">
             <div class="hero-kicker">OnTheGo for Sales Travel</div>
             <h2 class="hero-title">Find the best restaurants around your hotel</h2>
-            <p class="hero-subtitle">Open-now, reservable, and client-friendly options — in seconds.</p>
+            <p class="hero-subtitle">Open-now, reservable, client-friendly — plus walk/drive times.</p>
 
             <form id="hotelSearchForm" class="hero-form" autocomplete="off">
               <div class="hero-search">
                 <i class="fas fa-hotel"></i>
-                <input id="hotelSearchInput" type="text" placeholder="Type your hotel or address (e.g., 'Hyatt Austin' or '233 S Wacker Chicago')" />
+                <input id="hotelSearchInput" type="text"
+                       placeholder="Type your hotel or address (e.g., 'Hyatt Austin' or '233 S Wacker Chicago')" />
                 <button class="hero-btn" type="submit"><i class="fas fa-magnifying-glass"></i> Search</button>
               </div>
               <div id="hotelSuggestions" class="suggestions" style="display:none;"></div>
@@ -219,18 +252,17 @@
 
             <div class="hero-meta">
               <span id="providerBadge" class="provider-badge"><i class="fas fa-database"></i> Google Places</span>
-              <span class="privacy-note"><i class="fas fa-shield"></i> Location is only used when you click the button.</span>
+              <span class="privacy-note"><i class="fas fa-shield"></i> Location only used when you click.</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Trip History Sidebar -->
       <aside class="trip-sidebar">
         <h2><i class="fas fa-history"></i> Travel History</h2>
         <div id="tripHistory" class="trip-history-list"></div>
 
-        <h2 style="margin-top: 2rem;"><i class="fas fa-calendar-alt"></i> Upcoming Trips</h2>
+        <h2 style="margin-top:2rem;"><i class="fas fa-calendar-alt"></i> Upcoming Trips</h2>
         <div id="upcomingTrips" class="upcoming-trips-list"></div>
       </aside>
     </div>
@@ -239,6 +271,7 @@
     <div id="localView" class="local-view" style="display:none;">
       <aside class="sidebar" id="searchSidebar">
         <div class="sidebar-resize-handle" id="sidebarResizeHandle"></div>
+
         <button class="sidebar-toggle-btn" id="sidebarToggleBtn" title="Toggle search panel">
           <i class="fas fa-chevron-left"></i>
         </button>
@@ -254,8 +287,8 @@
           </button>
 
           <div id="activeLocationLabel" class="active-location"></div>
+          <div id="timeHint" class="time-hint" style="display:none;"></div>
 
-          <!-- Quick chips -->
           <div class="quick-chips" id="quickChips">
             <button type="button" class="chip active" data-preset="client_dinner"><i class="fas fa-briefcase"></i> Client Dinner</button>
             <button type="button" class="chip" data-preset="quick_lunch"><i class="fas fa-bolt"></i> Quick Lunch</button>
@@ -265,7 +298,8 @@
         </div>
 
         <div class="search-container">
-          <input type="text" id="searchInput" class="search-input" placeholder="Search by name, cuisine, city, state, or zip..." />
+          <input type="text" id="searchInput" class="search-input"
+                 placeholder="Search by name, cuisine, city, state, or zip..." />
           <i class="fas fa-search search-icon"></i>
         </div>
 
@@ -302,6 +336,7 @@
           <div class="filter-group">
             <label for="sortBy">Sort By:</label>
             <select id="sortBy" class="filter-select">
+              <option value="client_score">Client Dinner Score</option>
               <option value="rating">Rating</option>
               <option value="distance">Distance</option>
               <option value="review_count">Reviews</option>
@@ -318,6 +353,18 @@
         </div>
 
         <div id="restaurantList" class="restaurant-list">
+          <div id="shortlistBar" class="shortlist-bar" style="display:none;">
+            <div class="shortlist-left">
+              <i class="fas fa-star"></i>
+              <span id="shortlistCount">0</span>
+              <span class="muted">in shortlist</span>
+            </div>
+            <div class="shortlist-right">
+              <button id="shortlistShareBtn" class="mini-btn" type="button"><i class="fas fa-share-nodes"></i> Share</button>
+              <button id="shortlistClearBtn" class="mini-btn danger" type="button"><i class="fas fa-trash"></i></button>
+            </div>
+          </div>
+
           <div id="loadingState" class="loading-state">
             <i class="fas fa-spinner fa-spin"></i>
             <p>Finding restaurants near you...</p>
@@ -340,7 +387,7 @@
     <div id="travelLogView" class="travel-log-view" style="display:none;">
       <div class="travel-log-header">
         <h2><i class="fas fa-book"></i> My Travel Log</h2>
-        <p>A yearly record of your hotels and places visited</p>
+        <p>Shortlists, notes, and visited places — year by year.</p>
       </div>
       <div class="travel-log-stats" id="travelLogStats"></div>
       <div class="travel-log-content" id="travelLogContent"></div>
@@ -357,6 +404,7 @@
   <!-- App Scripts -->
   <script src="js/config.js"></script>
   <script src="js/storage.js"></script>
+  <script src="js/routing.js"></script>
   <script src="js/api.js"></script>
   <script src="js/map.js"></script>
   <script src="js/worldmap.js"></script>
