@@ -4,6 +4,8 @@ const MapModule = {
   userMarker: null,
   userLocation: null,
   searchAreaBtn: null,
+  walkCircle: null,
+  _walkCircleMetersPerMinute: 80,
 
   init() {
     if (typeof L === "undefined") return;
@@ -16,6 +18,8 @@ const MapModule = {
     ).addTo(this.map);
 
     this.addSearchAreaButton();
+    this.addLocateMeButton();
+    this.bindDinnerPlanReactivity();
 
     this.map.on("moveend", () => {
       if (this.searchAreaBtn) this.searchAreaBtn.style.display = "block";
@@ -75,6 +79,7 @@ const MapModule = {
       .bindPopup(`<strong>${label}</strong>`)
       .openPopup();
 
+    this.updateWalkCircleFromPlan((window.DinnerPlan || (typeof DinnerPlan !== "undefined" ? DinnerPlan : null))?.state);
     window.App?.onLocationReady?.(latitude, longitude, label);
   },
 
@@ -93,6 +98,73 @@ const MapModule = {
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
+  },
+
+  addLocateMeButton() {
+    if (!this.map || typeof L === "undefined") return;
+
+    const LocateControl = L.Control.extend({
+      options: { position: "topright" },
+      onAdd: () => {
+        const container = L.DomUtil.create("div", "map-locate-control");
+        container.innerHTML = `
+          <button class="locate-me-btn" title="Use my current location">
+            <i class="fas fa-location-arrow"></i>
+          </button>
+        `;
+
+        const btn = container.querySelector(".locate-me-btn");
+        btn.addEventListener("click", (e) => {
+          L.DomEvent.stopPropagation(e);
+          this.requestUserLocation();
+        });
+
+        L.DomEvent.disableClickPropagation(container);
+        return container;
+      }
+    });
+
+    this.map.addControl(new LocateControl());
+  },
+
+  bindDinnerPlanReactivity() {
+    const planStore = window.DinnerPlan || (typeof DinnerPlan !== "undefined" ? DinnerPlan : null);
+    if (!planStore || typeof planStore.subscribe !== "function") return;
+
+    this.updateWalkCircleFromPlan(planStore.state);
+    planStore.subscribe((plan) => {
+      this.updateWalkCircleFromPlan(plan);
+    });
+  },
+
+  updateWalkCircleFromPlan(plan) {
+    if (!this.map || typeof L === "undefined") return;
+    if (!plan) return;
+
+    const center = this.userLocation || (this.map ? this.map.getCenter() : null);
+    if (!center) return;
+
+    const lat = center.lat ?? center.latitude;
+    const lng = center.lng ?? center.longitude;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    const minutes = Number(plan.walkMinutes || 15);
+    const radiusMeters = Math.max(250, minutes * this._walkCircleMetersPerMinute);
+
+    if (this.walkCircle) {
+      try { this.map.removeLayer(this.walkCircle); } catch {}
+      this.walkCircle = null;
+    }
+
+    this.walkCircle = L.circle([lat, lng], {
+      radius: radiusMeters,
+      color: "#FF6B35",
+      weight: 2,
+      opacity: 0.7,
+      fillColor: "#FF6B35",
+      fillOpacity: 0.08,
+      dashArray: "6 6"
+    }).addTo(this.map);
   },
 
   clearMarkers() {
