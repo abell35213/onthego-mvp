@@ -36,12 +36,12 @@ const WorldMapModule = {
         <div class="trip-title">${t.hotel}</div>
         <div class="trip-sub">${t.city}, ${t.state} • ${t.startDate} → ${t.endDate}</div>
       `;
-      card.addEventListener("click", () => App.openTrip(t.id));
+      card.addEventListener("click", () => this.highlightTrip(t.id));
       (isUpcoming ? upcomingEl : historyEl).appendChild(card);
 
       const m = L.marker([t.coordinates.latitude, t.coordinates.longitude]).addTo(this.map);
       m.bindPopup(`<strong>${t.hotel}</strong><br/>${t.city}, ${t.state}<br/><em>Click to search dining</em>`);
-      m.on("click", () => App.openTrip(t.id));
+      m.on("click", () => this.highlightTrip(t.id));
       this.markers.push(m);
     });
 
@@ -55,5 +55,18 @@ const WorldMapModule = {
     if (!this.map) return;
     this.markers.forEach(m => { try { this.map.removeLayer(m); } catch {} });
     this.markers = [];
+  },
+
+  highlightTrip(id) {
+    App.openTrip(id);
+
+    if (window.App && App.currentView && App.currentView !== CONFIG.VIEW_MODE_WORLD) {
+      // If user isn't in world view, don't run simulated nearby pins behavior
+      return;
+    }
+
+    if (typeof this.showNearbyRestaurants === "function") {
+      setTimeout(() => this.showNearbyRestaurants(id), 250);
+    }
   }
 };
