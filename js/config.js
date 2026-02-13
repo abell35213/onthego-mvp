@@ -1,5 +1,6 @@
 const CONFIG = {
   APP_NAME: "OnTheGo",
+  VIEW_MODE_WORLD: "world",
 
   DEFAULT_LAT: 37.7749,
   DEFAULT_LNG: -122.4194,
