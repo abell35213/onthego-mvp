@@ -6,21 +6,13 @@ const MapModule = {
   searchAreaBtn: null,
 
   init() {
-    if (typeof L === "undefined") {
-      console.warn("Leaflet not loaded.");
-      return;
-    }
+    if (typeof L === "undefined") return;
 
     this.map = L.map("map").setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
 
-    // Esri World Imagery (your original vibe)
     L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      {
-        attribution:
-          "Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
-        maxZoom: 19
-      }
+      { maxZoom: 19 }
     ).addTo(this.map);
 
     this.addSearchAreaButton();
@@ -31,9 +23,7 @@ const MapModule = {
   },
 
   addSearchAreaButton() {
-    if (!this.map) return;
     const self = this;
-
     const SearchAreaControl = L.Control.extend({
       options: { position: "topright" },
       onAdd() {
@@ -50,12 +40,10 @@ const MapModule = {
         return btn;
       }
     });
-
     this.map.addControl(new SearchAreaControl());
   },
 
   async searchCurrentArea() {
-    if (!this.map) return;
     const c = this.map.getCenter();
     this.setSearchCenter(c.lat, c.lng, "Map Center");
   },
@@ -67,13 +55,12 @@ const MapModule = {
 
     this.userLocation = { lat: latitude, lng: longitude };
 
-    if (this.map) this.map.setView([latitude, longitude], CONFIG.DEFAULT_ZOOM);
+    this.map.setView([latitude, longitude], CONFIG.DEFAULT_ZOOM);
 
-    if (this.userMarker && this.map) {
+    if (this.userMarker) {
       try { this.map.removeLayer(this.userMarker); } catch {}
     }
 
-    // blue marker
     const userIcon = L.icon({
       iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
       shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
@@ -88,24 +75,20 @@ const MapModule = {
       .bindPopup(`<strong>${label}</strong>`)
       .openPopup();
 
-    // trigger app fetch
     window.App?.onLocationReady?.(latitude, longitude, label);
   },
 
   requestUserLocation() {
     if (!("geolocation" in navigator)) {
-      UI.toast("Geolocation not supported — using default location.", "warn");
+      UI.toast("Geolocation not supported — using default.");
       this.setSearchCenter(CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG, "Default");
       return;
     }
 
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        this.setSearchCenter(pos.coords.latitude, pos.coords.longitude, "My Location");
-      },
-      (err) => {
-        console.warn("Geolocation error:", err);
-        UI.toast("Could not get location — using default.", "warn");
+      (pos) => this.setSearchCenter(pos.coords.latitude, pos.coords.longitude, "My Location"),
+      () => {
+        UI.toast("Could not get location — using default.");
         this.setSearchCenter(CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG, "Default");
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -113,7 +96,6 @@ const MapModule = {
   },
 
   clearMarkers() {
-    if (!this.map) return;
     for (const marker of this.markersById.values()) {
       try { this.map.removeLayer(marker); } catch {}
     }
@@ -121,8 +103,6 @@ const MapModule = {
   },
 
   addRestaurantMarkers(restaurants) {
-    if (!this.map) return;
-
     this.clearMarkers();
 
     restaurants.forEach((r) => {
@@ -141,14 +121,31 @@ const MapModule = {
 
       const marker = L.marker([lat, lng], { icon })
         .addTo(this.map)
-        .bindPopup(this.createPopupContent(r), { maxWidth: 360, minWidth: 280 });
+        .bindPopup(this.createPopupContent(r), { maxWidth: 380, minWidth: 300 });
 
       marker.on("click", () => UI.highlightRestaurantCard(r.id));
+
+      marker.on("popupopen", async (e) => {
+        // attach calendar action
+        const el = e.popup.getElement();
+        const cal = el?.querySelector(`[data-ics="${r.id}"]`);
+        if (cal) {
+          cal.addEventListener("click", (ev) => {
+            ev.preventDefault();
+            App.downloadCalendarForRestaurant(r.id);
+          }, { once: true });
+        }
+
+        // load route times on demand
+        await App.ensureRouteTimes(r.id);
+        // update popup HTML after times load
+        const updated = App.getRestaurantById(r.id);
+        if (updated) marker.setPopupContent(this.createPopupContent(updated));
+      });
 
       this.markersById.set(r.id, marker);
     });
 
-    // Fit bounds to markers + user marker
     const layers = [...this.markersById.values()];
     if (this.userMarker) layers.push(this.userMarker);
     if (layers.length) {
@@ -173,36 +170,46 @@ const MapModule = {
     const status =
       r.open_now === true ? `<span class="badge open"><i class="fas fa-door-open"></i> Open</span>` :
       r.open_now === false ? `<span class="badge closed"><i class="fas fa-door-closed"></i> Closed</span>` :
-      `<span class="badge warn"><i class="fas fa-clock"></i> Hours unknown</span>`;
-
-    const deliveryLinks = API.getDeliveryLinks(r.name, address);
-    const reservationLinks = API.getReservationLinks(r.name, r.location?.city);
+      `<span class="badge warn"><i class="fas fa-clock"></i> Hours?</span>`;
 
     const mapsLink = r.url || `https://www.google.com/maps/search/${encodeURIComponent(r.name + " " + (r.location?.city || ""))}`;
     const website = r.website || "";
+    const reserveLink = r.reservable ? (website || API.getReservationLinks(r.name, r.location?.city).opentable) : "";
 
-    const reserveLink = r.reservable ? (website || reservationLinks.opentable) : "";
+    const rt = r.routeTimes;
+    const walk = rt?.walkSec ? Routing.formatDuration(rt.walkSec) : "";
+    const drive = rt?.driveSec ? Routing.formatDuration(rt.driveSec) : "";
+    const routeLine = (walk || drive) ? `${walk ? `🚶 ${walk}` : ""}${walk && drive ? " · " : ""}${drive ? `🚗 ${drive}` : ""}` : "Route times: loading…";
 
     return `
       <div class="popup-content">
         <div style="display:flex; gap:10px; align-items:flex-start;">
           <div style="flex:1; min-width:0;">
-            <div style="font-weight:1000; font-size:1.05rem;">${r.name}</div>
+            <div style="font-weight:1100; font-size:1.05rem;">${r.name}</div>
             <div style="color:rgba(238,242,255,0.72); font-size:0.85rem;">${categories || ""}</div>
+
             <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
               ${status}
               ${r.price ? `<span class="badge"><i class="fas fa-dollar-sign"></i> ${r.price}</span>` : ""}
               ${Number.isFinite(r.distance) ? `<span class="badge"><i class="fas fa-walking"></i> ${API.formatDistance(r.distance)}</span>` : ""}
+              <span class="badge score"><i class="fas fa-briefcase"></i> Score ${r.clientScore ?? "—"}</span>
             </div>
+
             <div style="margin-top:8px;">
               <span class="stars">${stars}</span>
-              <span style="font-weight:900;"> ${Number(r.rating || 0).toFixed(1)}</span>
+              <span style="font-weight:1000;"> ${Number(r.rating || 0).toFixed(1)}</span>
               <span style="color:rgba(238,242,255,0.70);"> (${r.review_count || 0})</span>
             </div>
+
             <div style="margin-top:8px; color:rgba(238,242,255,0.72); font-size:0.85rem;">
               <i class="fas fa-map-marker-alt"></i> ${address || "Address not available"}
             </div>
+
+            <div style="margin-top:8px; color:rgba(238,242,255,0.85); font-weight:900; font-size:0.88rem;">
+              ${routeLine}
+            </div>
           </div>
+
           ${r.image_url ? `<img src="${r.image_url}" alt="${r.name}" style="width:84px;height:84px;border-radius:14px;object-fit:cover;border:1px solid rgba(255,255,255,0.12)"/>` : ""}
         </div>
 
@@ -210,16 +217,19 @@ const MapModule = {
           <a class="popup-btn primary" target="_blank" rel="noopener noreferrer" href="${mapsLink}">
             <i class="fas fa-map"></i> Maps
           </a>
+
           ${website ? `
             <a class="popup-btn" target="_blank" rel="noopener noreferrer" href="${website}">
               <i class="fas fa-globe"></i> Website
             </a>` : ""}
+
           ${reserveLink ? `
             <a class="popup-btn" target="_blank" rel="noopener noreferrer" href="${reserveLink}">
               <i class="fas fa-calendar-check"></i> Reserve
             </a>` : ""}
-          <a class="popup-btn" target="_blank" rel="noopener noreferrer" href="${deliveryLinks.ubereats}">
-            <i class="fas fa-hamburger"></i> Delivery
+
+          <a class="popup-btn" href="#" data-ics="${r.id}">
+            <i class="fas fa-calendar-plus"></i> Calendar
           </a>
         </div>
       </div>
