@@ -655,3 +655,70 @@ body{
   .map-container{height: 52vh}
   .hero-card{max-width: unset}
 }
+
+/* ===== Dinner Plan Panel ===== */
+.plan-panel {
+  margin: 1rem 1.5rem 0;
+  background: linear-gradient(135deg, rgba(255,107,53,0.08), rgba(0,78,137,0.06));
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.plan-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.plan-panel__title {
+  font-weight: 800;
+  color: var(--text-dark);
+}
+
+.plan-panel__title i { color: var(--primary-color); margin-right: 0.4rem; }
+
+.plan-panel__hint {
+  font-size: 0.8rem;
+  color: var(--text-light);
+}
+
+.plan-panel__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.plan-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+  color: var(--text-light);
+}
+
+.plan-field--full { grid-column: 1 / -1; }
+
+.plan-field input,
+.plan-field select {
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.55rem 0.6rem;
+  font-size: 0.9rem;
+  background: var(--bg-white);
+}
+
+.plan-field input:focus,
+.plan-field select:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.15);
+}
+
+.plan-field small {
+  color: var(--text-light);
+  margin-top: -0.15rem;
+}
