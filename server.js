@@ -125,6 +125,56 @@ app.post('/api/yelp-search', async (req, res) => {
     }
 });
 
+app.post('/api/concierge', async (req, res) => {
+    const { restaurants = [], preferences = {} } = req.body || {};
+    if (!Array.isArray(restaurants) || restaurants.length === 0) {
+        return res.json({ pins: {}, note: 'No restaurants provided.' });
+    }
+
+    const vibe = String(preferences.vibe || '').toLowerCase();
+    const price = String(preferences.price || '').trim();
+
+    const scored = restaurants
+        .map((r) => {
+            const rating = Number(r?.rating ?? 0);
+            const reviews = Number(r?.review_count ?? 0);
+            const dist = Number(r?.distance ?? 999999);
+
+            const tags = (r?.tags ?? []).map((t) => String(t).toLowerCase());
+            const businessBoost = tags.some((t) => t.includes('business')) ? 0.35 : 0;
+
+            const vibeBoost = vibe && tags.some((t) => t.includes(vibe)) ? 0.25 : 0;
+            const priceMatch = price && String(r?.price || '') === price ? 0.20 : 0;
+
+            const reviewBoost = Math.log10(1 + reviews) * 0.25;
+            const distancePenalty = Math.min(dist / 2500, 2) * 0.35;
+
+            const score = (rating * 1.0) + reviewBoost + businessBoost + vibeBoost + priceMatch - distancePenalty;
+            return { r, score };
+        })
+        .sort((a, b) => b.score - a.score);
+
+    // Pick 3 distinct pins
+    const picks = [];
+    const used = new Set();
+    for (const item of scored) {
+        const id = String(item.r.id);
+        if (used.has(id)) continue;
+        used.add(id);
+        picks.push(id);
+        if (picks.length >= 3) break;
+    }
+
+    return res.json({
+        pins: {
+            primary: picks[0] || null,
+            backup: picks[1] || null,
+            late: picks[2] || null
+        },
+        note: 'Rule-based concierge selection (wire AI next).'
+    });
+});
+
 app.get('/api/health', async (req, res) => {
     const hasYelp = Boolean(process.env.YELP_API_KEY);
     const hasOpenAI = Boolean(process.env.OPENAI_API_KEY);
@@ -137,69 +187,6 @@ app.get('/api/health', async (req, res) => {
         },
         version: 'onthego-concierge-v1'
     });
-});
-
-app.post('/api/concierge', async (req, res) => {
-    const apiKey = process.env.OPENAI_API_KEY;
-    const model = process.env.OPENAI_MODEL || 'gpt-5.2';
-
-    const { plan, message } = req.body || {};
-    const userText = String(message || '').trim();
-    if (!userText) {
-        return res.status(400).json({ error: 'message is required' });
-    }
-
-    if (!apiKey) {
-        return res.json({
-            source: 'fallback',
-            text:
-                'Here’s a fast concierge approach:\n' +
-                '• Pick 2 places from the list that match your vibe.\n' +
-                '• I’ll suggest a Primary + Backup plan and the best time window.\n' +
-                'Tell me: client dinner or solo, and your budget ($/$$/$$$).'
-        });
-    }
-
-    try {
-        const system =
-            'You are OnTheGo Concierge for traveling professionals. ' +
-            'Provide 3 dinner picks with “Primary / Backup / If fully booked”. ' +
-            'Ask at most 1 follow-up question. Be decisive and brief.';
-
-        const input = [
-            { role: 'system', content: system },
-            plan ? { role: 'user', content: `Dinner plan context JSON: ${JSON.stringify(plan)}` } : null,
-            { role: 'user', content: userText }
-        ].filter(Boolean);
-
-        const resp = await fetch('https://api.openai.com/v1/responses', {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model,
-                input,
-                max_output_tokens: 450
-            })
-        });
-
-        if (!resp.ok) {
-            const t = await resp.text().catch(() => '');
-            return res.status(502).json({ error: 'Concierge upstream error', detail: t.slice(0, 250) });
-        }
-
-        const data = await resp.json();
-        const text =
-            data.output_text ||
-            (Array.isArray(data.output) ? JSON.stringify(data.output) : '') ||
-            'No response text';
-
-        return res.json({ source: 'openai', text });
-    } catch (error) {
-        return res.status(500).json({ error: 'Concierge failed', detail: String(error?.message || error) });
-    }
 });
 
 app.listen(PORT, () => {
