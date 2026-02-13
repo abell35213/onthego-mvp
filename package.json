@@ -4,7 +4,7 @@
   "description": "**OnTheGo** is a full-featured web application designed for traveling salespeople and anyone on the go who needs to quickly find the best restaurants nearby. The app provides an interactive map, detailed restaurant information, and convenient links to reviews, social media, delivery services, and reservation platforms — all in one place.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node server/index.js",
     "test": "echo \"No tests specified\""
   },
   "repository": {
@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/abell35213/onthego#readme",
   "dependencies": {
+    "cors": "^2.8.6",
     "dotenv": "^17.2.4",
     "express": "^5.2.1"
   }

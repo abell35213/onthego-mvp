@@ -348,7 +348,7 @@ app.post("/api/routes", async (req, res) => {
 const siteRoot = path.join(__dirname, "..");
 app.use(express.static(siteRoot));
 
-app.get("*", (req, res) => res.sendFile(path.join(siteRoot, "index.html")));
+app.get(/.*/, (req, res) => res.sendFile(path.join(siteRoot, "index.html")));
 
 const PORT = Number(process.env.PORT || 3000);
 app.listen(PORT, () => console.log(`✅ OnTheGo running on http://localhost:${PORT}`));
