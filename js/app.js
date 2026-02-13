@@ -15,6 +15,9 @@ const App = {
     UI.init();
     MapModule.init();
     WorldMapModule.init();
+    if (typeof DinnerPlan !== 'undefined') {
+      DinnerPlan.init();
+    }
 
     this.bindHeaderButtons();
     this.bindLocationControls();
