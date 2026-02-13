@@ -1,216 +1,169 @@
-// API Integration Module
 const API = {
-    /**
-     * Fetch restaurants from Yelp API or return mock data
-     * @param {number} latitude - User's latitude
-     * @param {number} longitude - User's longitude
-     * @returns {Promise<Array>} - Array of restaurant objects
-     */
-    async fetchRestaurants(latitude, longitude) {
-        // Check if Yelp proxy is configured
-        if (!CONFIG.YELP_API_URL || CONFIG.YELP_API_URL === '') {
-            console.log('Yelp proxy not configured. Using mock data.');
-            return this.getMockRestaurants(latitude, longitude);
-        }
+  async fetchRestaurants(lat, lng, options = {}) {
+    const settings = Storage.get(CONFIG.STORAGE_KEYS.SETTINGS, {});
+    const provider = settings.provider || CONFIG.PROVIDERS.GOOGLE;
 
-        try {
-            const payload = {
-                latitude,
-                longitude,
-                radius: CONFIG.SEARCH_RADIUS,
-                limit: CONFIG.SEARCH_LIMIT,
-                categories: 'restaurants,bars,breweries,nightlife',
-                sort_by: 'rating'
-            };
+    const radius = Number(settings.radius || CONFIG.DEFAULT_RADIUS_METERS);
+    const preset = options.preset || "client_dinner";
 
-            const response = await fetch(CONFIG.YELP_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(payload)
-            });
+    // types preset (Google types)
+    const includedTypes = this._presetToIncludedTypes(preset);
 
-            if (!response.ok) {
-                throw new Error(`Yelp API error: ${response.status}`);
-            }
-
-            const data = await response.json();
-            return data.businesses || [];
-        } catch (error) {
-            console.error('Error fetching from Yelp API:', error);
-            console.log('Falling back to mock data.');
-            return this.getMockRestaurants(latitude, longitude);
-        }
-    },
-
-    /**
-     * Get mock restaurant data, relocated around the given coordinates
-     * @param {number} latitude - User's latitude
-     * @param {number} longitude - User's longitude
-     * @returns {Promise<Array>} - Array of mock restaurant objects
-     */
-    async getMockRestaurants(latitude, longitude) {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, CONFIG.MOCK_API_DELAY));
-        
-        // Relocate mock restaurants around the given coordinates so they appear
-        // on the map regardless of which city/hotel is selected.
-        const offsets = [
-            { lat: 0.005, lng: 0.003 },
-            { lat: -0.003, lng: 0.006 },
-            { lat: 0.004, lng: -0.005 },
-            { lat: -0.006, lng: -0.002 },
-            { lat: 0.002, lng: -0.007 },
-            { lat: 0.006, lng: 0.005 },
-            { lat: -0.004, lng: -0.006 },
-            { lat: -0.002, lng: 0.008 },
-            { lat: 0.007, lng: -0.003 },
-            { lat: -0.005, lng: -0.004 },
-            { lat: 0.003, lng: 0.007 },
-            { lat: -0.007, lng: 0.002 },
-            { lat: 0.001, lng: -0.008 },
-            { lat: -0.004, lng: 0.005 },
-        ];
-
-        return MOCK_RESTAURANTS.map((restaurant, i) => {
-            const offset = offsets[i % offsets.length];
-            const newLat = latitude + offset.lat;
-            const newLng = longitude + offset.lng;
-            const distance = this.calculateDistance(
-                latitude,
-                longitude,
-                newLat,
-                newLng
-            );
-            
-            return {
-                ...restaurant,
-                coordinates: {
-                    latitude: newLat,
-                    longitude: newLng
-                },
-                distance: Math.round(distance)
-            };
+    if (provider === CONFIG.PROVIDERS.GOOGLE) {
+      try {
+        const res = await fetch(CONFIG.GOOGLE_PROXY.NEARBY, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            latitude: lat,
+            longitude: lng,
+            radius,
+            maxResultCount: CONFIG.SEARCH_LIMIT,
+            includedTypes
+          })
         });
-    },
 
-    /**
-     * Calculate distance between two coordinates using Haversine formula
-     * @param {number} lat1 - First latitude
-     * @param {number} lon1 - First longitude
-     * @param {number} lat2 - Second latitude
-     * @param {number} lon2 - Second longitude
-     * @returns {number} - Distance in meters
-     */
-    calculateDistance(lat1, lon1, lat2, lon2) {
-        const R = 6371e3; // Earth's radius in meters
-        const φ1 = lat1 * Math.PI / 180;
-        const φ2 = lat2 * Math.PI / 180;
-        const Δφ = (lat2 - lat1) * Math.PI / 180;
-        const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-                  Math.cos(φ1) * Math.cos(φ2) *
-                  Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-        return R * c;
-    },
-
-    /**
-     * Generate social media search URLs
-     * @param {string} restaurantName - Name of the restaurant
-     * @param {string} [city] - City name
-     * @param {string} [state] - State abbreviation
-     * @returns {Object} - Object containing social media URLs
-     */
-    getSocialMediaLinks(restaurantName, city, state) {
-        const locationParts = [restaurantName, city, state].filter(Boolean);
-        const encodedName = encodeURIComponent(restaurantName);
-        const encodedQuery = encodeURIComponent(locationParts.join(' '));
-        
-        return {
-            instagram: `https://www.instagram.com/explore/tags/${encodedName.replace(/%20/g, '')}/`,
-            facebook: `https://www.facebook.com/search/top?q=${encodedQuery}`,
-            twitter: `https://twitter.com/search?q=${encodedQuery}`,
-            // Fallback search links
-            instagramSearch: `https://www.google.com/search?q=${encodedQuery}+instagram`,
-            facebookSearch: `https://www.google.com/search?q=${encodedQuery}+facebook`,
-            twitterSearch: `https://www.google.com/search?q=${encodedQuery}+twitter`
-        };
-    },
-
-    /**
-     * Generate delivery platform URLs
-     * @param {string} restaurantName - Name of the restaurant
-     * @param {string} address - Restaurant address
-     * @returns {Object} - Object containing delivery platform URLs
-     */
-    getDeliveryLinks(restaurantName, address) {
-        const encodedName = encodeURIComponent(restaurantName);
-        const encodedAddress = encodeURIComponent(address);
-        
-        return {
-            ubereats: `https://www.ubereats.com/search?q=${encodedName}`,
-            doordash: `https://www.doordash.com/search/?query=${encodedName}`,
-            grubhub: `https://www.grubhub.com/search?searchTerm=${encodedName}`
-        };
-    },
-
-    /**
-     * Generate reservation platform URLs
-     * @param {string} restaurantName - Name of the restaurant
-     * @param {string} city - Restaurant city
-     * @returns {Object} - Object containing reservation platform URLs
-     */
-    getReservationLinks(restaurantName, city) {
-        const encodedName = encodeURIComponent(restaurantName);
-        const encodedCity = encodeURIComponent(city || '');
-        
-        return {
-            opentable: `https://www.opentable.com/s?term=${encodedName}${city ? `&metroId=${encodedCity}` : ''}`,
-            resy: `https://resy.com/cities/${encodedCity ? encodedCity.toLowerCase() : 'sf'}?search=${encodedName}`
-        };
-    },
-
-    /**
-     * Format distance for display (in miles)
-     * @param {number} meters - Distance in meters
-     * @returns {string} - Formatted distance string
-     */
-    formatDistance(meters) {
-        const miles = meters / 1609.344;
-        if (miles < 0.1) {
-            const feet = Math.round(meters * 3.28084);
-            return `${feet} ft`;
-        } else {
-            return `${miles.toFixed(1)} mi`;
-        }
-    },
-
-    /**
-     * Generate star rating HTML
-     * @param {number} rating - Rating value (0-5)
-     * @returns {string} - HTML string with star icons
-     */
-    getStarRating(rating) {
-        const fullStars = Math.floor(rating);
-        const hasHalfStar = rating % 1 >= 0.5;
-        const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
-        
-        let stars = '';
-        for (let i = 0; i < fullStars; i++) {
-            stars += '<i class="fas fa-star"></i>';
-        }
-        if (hasHalfStar) {
-            stars += '<i class="fas fa-star-half-alt"></i>';
-        }
-        for (let i = 0; i < emptyStars; i++) {
-            stars += '<i class="far fa-star"></i>';
-        }
-        
-        return stars;
+        if (!res.ok) throw new Error(`Places proxy error: ${res.status}`);
+        const data = await res.json();
+        return (data.restaurants || []).map(r => ({ ...r, provider: "google" }));
+      } catch (e) {
+        console.warn("Google Places failed; falling back to demo data.", e);
+        UI?.toast?.("Google Places unavailable — using demo data.", "warn");
+        return this._mockRestaurants(lat, lng);
+      }
     }
+
+    return this._mockRestaurants(lat, lng);
+  },
+
+  async searchHotels(textQuery, locationBias) {
+    const settings = Storage.get(CONFIG.STORAGE_KEYS.SETTINGS, {});
+    const provider = settings.provider || CONFIG.PROVIDERS.GOOGLE;
+
+    if (provider !== CONFIG.PROVIDERS.GOOGLE) {
+      // demo suggestion list
+      return [
+        {
+          id: "demo_hotel",
+          name: "Demo Hotel",
+          address: "123 Demo St, Demo City",
+          coordinates: { latitude: CONFIG.DEFAULT_LAT, longitude: CONFIG.DEFAULT_LNG },
+          googleMapsUri: "https://www.google.com/maps"
+        }
+      ];
+    }
+
+    const res = await fetch(CONFIG.GOOGLE_PROXY.TEXT_SEARCH, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        textQuery,
+        includedType: "lodging",
+        locationBias
+      })
+    });
+    if (!res.ok) throw new Error(`TextSearch error: ${res.status}`);
+    const data = await res.json();
+    return data.hotels || [];
+  },
+
+  // ===== Helpers used across UI/Map =====
+  formatDistance(meters) {
+    const m = Number(meters || 0);
+    if (!Number.isFinite(m)) return "";
+    const miles = m / 1609.344;
+    return miles < 0.1 ? `${Math.round(m)} m` : `${miles.toFixed(1)} mi`;
+  },
+
+  getStarRating(rating) {
+    const r = Math.max(0, Math.min(5, Number(rating || 0)));
+    const full = Math.floor(r);
+    const half = r - full >= 0.5 ? 1 : 0;
+    const empty = 5 - full - half;
+
+    return (
+      "★".repeat(full) +
+      (half ? "½" : "") +
+      "☆".repeat(empty)
+    );
+  },
+
+  calculateDistance(lat1, lon1, lat2, lon2) {
+    const toRad = (x) => (x * Math.PI) / 180;
+    const R = 6371000;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  },
+
+  getDeliveryLinks(name, addressOrCity) {
+    const q = encodeURIComponent(`${name} ${addressOrCity || ""}`.trim());
+    return {
+      ubereats: `https://www.ubereats.com/search?q=${q}`,
+      doordash: `https://www.doordash.com/search/store/${q}/`,
+      grubhub: `https://www.grubhub.com/search?queryText=${q}`
+    };
+  },
+
+  getReservationLinks(name, city) {
+    const q = encodeURIComponent(`${name} ${city || ""}`.trim());
+    return {
+      opentable: `https://www.opentable.com/s/?term=${q}`,
+      resy: `https://resy.com/cities/${encodeURIComponent((city || "all").toLowerCase())}?query=${q}`
+    };
+  },
+
+  getSocialMediaLinks(name) {
+    const q = encodeURIComponent(name);
+    return {
+      instagram: `https://www.instagram.com/explore/tags/${q.replace(/%20/g, "")}/`,
+      facebook: `https://www.facebook.com/search/top?q=${q}`,
+      twitter: `https://x.com/search?q=${q}&src=typed_query`
+    };
+  },
+
+  // ===== Internal =====
+  _presetToIncludedTypes(preset) {
+    // Places type list is large; we keep a small, practical set.
+    switch (preset) {
+      case "coffee": return ["cafe"];
+      case "drinks": return ["bar"];
+      case "quick_lunch": return ["restaurant"];
+      case "client_dinner":
+      default:
+        return ["restaurant"];
+    }
+  },
+
+  _mockRestaurants(lat, lng) {
+    const base = [
+      { name: "The Executive Table", price: "$$$", rating: 4.6, review_count: 842, tags: ["Good for Business Meal"], open_now: true, reservable: true, categories: [{ title: "Steakhouse" }] },
+      { name: "Neighborhood Noodles", price: "$$", rating: 4.4, review_count: 513, tags: ["Local Spots"], open_now: true, reservable: false, categories: [{ title: "Asian" }] },
+      { name: "Rooftop Lounge", price: "$$$", rating: 4.3, review_count: 392, tags: ["Fun"], open_now: false, reservable: true, categories: [{ title: "Bar" }] },
+      { name: "Garden Cafe", price: "$", rating: 4.5, review_count: 201, tags: ["Chill"], open_now: true, reservable: false, categories: [{ title: "Cafe" }] }
+    ];
+
+    // Scatter near center
+    return base.map((r, i) => {
+      const dLat = (Math.random() - 0.5) * 0.02;
+      const dLng = (Math.random() - 0.5) * 0.02;
+      const coordinates = { latitude: lat + dLat, longitude: lng + dLng };
+      return {
+        id: `mock_${i}_${r.name.replace(/\s+/g, "_")}`,
+        ...r,
+        provider: "mock",
+        image_url: "",
+        location: { address1: "", city: "", state: "", zip_code: "" },
+        display_phone: "",
+        coordinates,
+        distance: this.calculateDistance(lat, lng, coordinates.latitude, coordinates.longitude),
+        url: `https://www.google.com/maps/search/${encodeURIComponent(r.name)}`,
+        website: ""
+      };
+    }).sort((a, b) => b.rating - a.rating);
+  }
 };
