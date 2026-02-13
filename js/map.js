@@ -1,499 +1,228 @@
-// Map Module - Handles Leaflet map initialization and markers
 const MapModule = {
-    map: null,
-    markers: [],
-    userMarker: null,
-    userLocation: null,
-    searchAreaBtn: null,
+  map: null,
+  markersById: new Map(),
+  userMarker: null,
+  userLocation: null,
+  searchAreaBtn: null,
 
-    /**
-     * Initialize the map
-     */
-    init() {
-        // Check if Leaflet is available
-        if (typeof L === 'undefined') {
-            console.warn('Leaflet library not loaded. Map functionality disabled.');
-            return;
-        }
-
-        // Create map centered on default location
-        this.map = L.map('map').setView(
-            [CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG],
-            CONFIG.DEFAULT_ZOOM
-        );
-
-        // Define tile layers
-        this.tileLayers = {
-            'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                attribution: 'Tiles &copy; Esri',
-                maxZoom: 19
-            }),
-            'Google Roads': L.tileLayer('https://{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
-                subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-                attribution: '&copy; Google Maps',
-                maxZoom: 20
-            }),
-            'Google Hybrid': L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-                subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-                attribution: '&copy; Google Maps',
-                maxZoom: 20
-            }),
-            'Street Map': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors',
-                maxZoom: 19
-            })
-        };
-
-        // Add default satellite layer
-        this.tileLayers['Satellite'].addTo(this.map);
-
-        // Add layer control
-        L.control.layers(this.tileLayers, null, { position: 'topright', collapsed: true }).addTo(this.map);
-
-        // Add "Search This Area" button
-        this.addSearchAreaButton();
-
-        // Add directions control
-        this.addDirectionsControl();
-
-        // Track whether the current move is programmatic (not user-initiated)
-        this._programmaticMove = false;
-
-        // Only show "Search This Area" when the user manually pans/zooms the map
-        this.map.on('moveend', () => {
-            if (this._programmaticMove) {
-                this._programmaticMove = false;
-                return;
-            }
-            if (this.searchAreaBtn) {
-                this.searchAreaBtn.style.display = 'block';
-            }
-        });
-    },
-
-    /**
-     * Add a "Search This Area" button overlay on the map.
-     * Appended directly to the map container so it can be centered horizontally.
-     * Only shown when the user manually drags/zooms the map.
-     */
-    addSearchAreaButton() {
-        if (!this.map) return;
-
-        const mapContainer = this.map.getContainer();
-        const wrapper = document.createElement('div');
-        wrapper.className = 'search-area-btn-wrapper';
-        const btn = document.createElement('button');
-        btn.className = 'search-area-btn';
-        btn.innerHTML = '<i class="fas fa-search-location"></i> Search This Area';
-        btn.style.display = 'none';
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.searchCurrentArea();
-            btn.style.display = 'none';
-        });
-        wrapper.appendChild(btn);
-        mapContainer.appendChild(wrapper);
-        L.DomEvent.disableClickPropagation(wrapper);
-        this.searchAreaBtn = btn;
-    },
-
-    /**
-     * Add directions control dropdown to the top-right of the map
-     */
-    addDirectionsControl() {
-        if (!this.map) return;
-
-        const DirectionsControl = L.Control.extend({
-            options: { position: 'topright' },
-            onAdd: () => {
-                const container = L.DomUtil.create('div', 'map-directions-control');
-                container.innerHTML = `
-                    <button class="directions-toggle-btn" title="Get Directions">
-                        <i class="fas fa-directions"></i>
-                    </button>
-                    <div class="directions-dropdown" style="display:none;">
-                        <a class="directions-option" data-provider="google" href="#" title="Google Maps">
-                            <i class="fas fa-map-marked-alt"></i> Google Maps
-                        </a>
-                        <a class="directions-option" data-provider="apple" href="#" title="Apple Maps">
-                            <i class="fab fa-apple"></i> Apple Maps
-                        </a>
-                    </div>
-                `;
-                const toggleBtn = container.querySelector('.directions-toggle-btn');
-                const dropdown = container.querySelector('.directions-dropdown');
-
-                toggleBtn.addEventListener('click', (e) => {
-                    L.DomEvent.stopPropagation(e);
-                    dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
-                });
-
-                container.querySelectorAll('.directions-option').forEach(opt => {
-                    opt.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        L.DomEvent.stopPropagation(e);
-                        const provider = opt.dataset.provider;
-                        const center = this.map.getCenter();
-                        let url;
-                        if (provider === 'apple') {
-                            url = `https://maps.apple.com/?daddr=${center.lat},${center.lng}`;
-                        } else {
-                            url = `https://www.google.com/maps/dir/?api=1&destination=${center.lat},${center.lng}`;
-                        }
-                        window.open(url, '_blank', 'noopener,noreferrer');
-                        dropdown.style.display = 'none';
-                    });
-                });
-
-                L.DomEvent.disableClickPropagation(container);
-                return container;
-            }
-        });
-
-        this.map.addControl(new DirectionsControl());
-    },
-
-    /**
-     * Search for restaurants in the current map view area.
-     * Preserves the current map zoom/position instead of re-fitting bounds.
-     */
-    async searchCurrentArea() {
-        const center = this.map.getCenter();
-        const lat = center.lat;
-        const lng = center.lng;
-
-        console.log(`Searching area at: ${lat}, ${lng}`);
-
-        try {
-            const restaurants = await API.fetchRestaurants(lat, lng);
-            console.log(`Found ${restaurants.length} restaurants in area`);
-            UI.setRestaurants(restaurants, { skipFitBounds: true });
-        } catch (error) {
-            console.error('Error searching area:', error);
-        }
-    },
-
-        /**
-     * Set the active search center (trip/hotel or GPS), update map, and load restaurants.
-     * This is the primary way the app centers searches without forcing a GPS permission prompt.
-     */
-    setSearchCenter(lat, lng, label = 'Search Center') {
-        const latitude = Number(lat);
-        const longitude = Number(lng);
-
-        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
-
-        this.userLocation = { lat: latitude, lng: longitude };
-
-        // Update map view if map exists (programmatic move, don't show search button)
-        if (this.map && typeof L !== 'undefined') {
-            this._programmaticMove = true;
-            this.map.setView([latitude, longitude], CONFIG.DEFAULT_ZOOM);
-        }
-
-        // Remove existing search center marker
-        if (this.userMarker && this.map) {
-            try { this.map.removeLayer(this.userMarker); } catch (_) {}
-        }
-
-        // Add/update search center marker
-        this.addUserMarker(latitude, longitude, label);
-
-        // Load restaurants for this search center
-        if (window.App && window.App.onLocationReady) {
-            window.App.onLocationReady(latitude, longitude);
-        }
-    },
-
-    /**
-     * Request the user's live GPS location on-demand.
-     * This should only be triggered by an explicit user action.
-     */
-    requestUserLocation() {
-        if ('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    this.setSearchCenter(
-                        position.coords.latitude,
-                        position.coords.longitude,
-                        'My Location'
-                    );
-                },
-                (error) => {
-                    console.error('Geolocation error:', error);
-                    this.handleGeolocationError(error);
-                    // Do not override the current trip/hotel search center on error
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
-                }
-            );
-        } else {
-            console.log('Geolocation not supported');
-            // If we don't have a search center yet, fall back to the default coords
-            if (!this.userLocation && window.App && window.App.onLocationReady) {
-                window.App.onLocationReady(CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG);
-            }
-        }
-    },
-
-    /**
-     * Handle geolocation errors
-     * @param {Object} error - Geolocation error object
-     */
-    handleGeolocationError(error) {
-        let message = 'Unable to get your location. ';
-        
-        switch(error.code) {
-            case error.PERMISSION_DENIED:
-                message += 'Location permission denied. Using default location (San Francisco).';
-                break;
-            case error.POSITION_UNAVAILABLE:
-                message += 'Location information unavailable. Using default location.';
-                break;
-            case error.TIMEOUT:
-                message += 'Location request timed out. Using default location.';
-                break;
-            default:
-                message += 'Using default location.';
-        }
-        
-        console.log(message);
-    },
-
-    /**
-     * Add user location marker to map
-     * @param {number} lat - Latitude
-     * @param {number} lng - Longitude
-     */
-    addUserMarker(lat, lng, label = "Search Center") {
-        if (!this.map || typeof L === 'undefined') return;
-        
-        // Create custom icon for user location
-        const userIcon = L.icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowSize: [41, 41]
-        });
-
-        this.userMarker = L.marker([lat, lng], { icon: userIcon })
-            .addTo(this.map)
-            .bindPopup(`<strong>${label}</strong>`)
-            .openPopup();
-    },
-
-    /**
-     * Clear all restaurant markers
-     */
-    clearMarkers() {
-        this.markers.forEach(marker => {
-            this.map.removeLayer(marker);
-        });
-        this.markers = [];
-    },
-
-    /**
-     * Add restaurant markers to map
-     * @param {Array} restaurants - Array of restaurant objects
-     * @param {Object} [options] - Options
-     * @param {boolean} [options.skipFitBounds=false] - When true, do not auto-zoom to fit markers
-     */
-    addRestaurantMarkers(restaurants, options = {}) {
-        if (!this.map || typeof L === 'undefined') return;
-        
-        this.clearMarkers();
-
-        restaurants.forEach(restaurant => {
-            const marker = this.createRestaurantMarker(restaurant);
-            if (marker) {
-                this.markers.push(marker);
-            }
-        });
-
-        // Fit map to show all markers if there are any (unless explicitly skipped)
-        if (!options.skipFitBounds && this.markers.length > 0) {
-            const layers = [...this.markers];
-            if (this.userMarker) layers.push(this.userMarker);
-            if (layers.length > 0) {
-                this._programmaticMove = true;
-                const group = L.featureGroup(layers);
-                this.map.fitBounds(group.getBounds().pad(0.1));
-            }
-        }
-    },
-
-    /**
-     * Create a marker for a restaurant
-     * @param {Object} restaurant - Restaurant object
-     * @returns {Object} - Leaflet marker object
-     */
-    createRestaurantMarker(restaurant) {
-        if (!this.map || typeof L === 'undefined') return null;
-        
-        const lat = restaurant.coordinates.latitude;
-        const lng = restaurant.coordinates.longitude;
-
-        // Create custom icon for restaurant
-        const restaurantIcon = L.icon({
-            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-            iconSize: [25, 41],
-            iconAnchor: [12, 41],
-            popupAnchor: [1, -34],
-            shadowSize: [41, 41]
-        });
-
-        // Create popup content matching the restaurant list card format
-        const popupContent = this.createPopupContent(restaurant);
-
-        // Create and return marker
-        const marker = L.marker([lat, lng], { icon: restaurantIcon })
-            .addTo(this.map)
-            .bindPopup(popupContent, { maxWidth: 420, minWidth: 320 });
-
-        // Add click event to highlight corresponding card
-        marker.on('click', () => {
-            if (window.UI && window.UI.highlightRestaurantCard) {
-                window.UI.highlightRestaurantCard(restaurant.id);
-            }
-        });
-
-        return marker;
-    },
-
-    /**
-     * Create popup content for a restaurant marker that mimics the restaurant list cards
-     * @param {Object} restaurant - Restaurant object
-     * @returns {string} - HTML string for popup
-     */
-    createPopupContent(restaurant) {
-        const categories = restaurant.categories
-            ? restaurant.categories.map(cat => cat.title).join(', ')
-            : '';
-        
-        const stars = API.getStarRating(restaurant.rating);
-
-        const location = restaurant.location;
-        const address = location 
-            ? `${location.address1}, ${location.city}, ${location.state} ${location.zip_code}`
-            : '';
-
-        const tagsHtml = restaurant.tags && restaurant.tags.length > 0 
-            ? `<div class="popup-tags">${restaurant.tags.map(tag => {
-                const tagClassMap = {
-                    'Good for Business Meal': 'business',
-                    'Chill': 'chill',
-                    'Fun': 'fun',
-                    'Local Spots': 'local',
-                    'Nightlife': 'fun',
-                    'Craft Beer': 'chill'
-                };
-                const tagClass = tagClassMap[tag] || tag.toLowerCase().replace(/\s+/g, '-');
-                return `<span class="tag-badge ${tagClass}">${tag}</span>`;
-            }).join('')}</div>`
-            : '';
-
-        const deliveryLinks = API.getDeliveryLinks(restaurant.name, address);
-        const reservationLinks = API.getReservationLinks(
-            restaurant.name, 
-            location ? location.city : ''
-        );
-        const socialLinks = API.getSocialMediaLinks(
-            restaurant.name,
-            location ? location.city : '',
-            location ? location.state : ''
-        );
-
-        return `
-            <div class="popup-content popup-content-full">
-                <div class="popup-header">
-                    <div>
-                        <div class="popup-name">${restaurant.name}</div>
-                        <div style="color: #666; font-size: 0.85rem;">${categories}</div>
-                    </div>
-                    ${restaurant.image_url ? `<img src="${restaurant.image_url}" alt="${restaurant.name}" class="popup-image">` : ''}
-                </div>
-                <div class="popup-rating">
-                    <span class="stars">${stars}</span>
-                    <span class="rating-number">${restaurant.rating}</span>
-                    <span class="review-count">(${restaurant.review_count} reviews)</span>
-                    ${restaurant.visited ? '<span class="visited-indicator" style="font-size:0.7rem;padding:0.2rem 0.4rem;margin-left:0.3rem;"><i class="fas fa-check"></i> Visited</span>' : ''}
-                </div>
-                <div class="popup-info">
-                    <span><i class="fas fa-dollar-sign" style="color:var(--primary-color)"></i> ${restaurant.price || 'N/A'}</span>
-                    <span><i class="fas fa-walking" style="color:var(--primary-color)"></i> ${API.formatDistance(restaurant.distance)}</span>
-                    ${restaurant.display_phone ? `<span><i class="fas fa-phone" style="color:var(--primary-color)"></i> ${restaurant.display_phone}</span>` : ''}
-                </div>
-                ${tagsHtml}
-                <div style="font-size: 0.8rem; color: #666; margin-bottom: 0.5rem;">
-                    <i class="fas fa-map-marker-alt" style="color:var(--primary-color)"></i> ${address}
-                </div>
-                <div class="popup-actions">
-                    <a href="${restaurant.url}" target="_blank" rel="noopener noreferrer" class="popup-btn" style="background-color:#D32323;">
-                        <i class="fab fa-yelp"></i> Yelp
-                    </a>
-                    <a href="${deliveryLinks.ubereats}" target="_blank" rel="noopener noreferrer" class="popup-btn">
-                        <i class="fas fa-hamburger"></i> Uber Eats
-                    </a>
-                    <a href="${deliveryLinks.doordash}" target="_blank" rel="noopener noreferrer" class="popup-btn">
-                        <i class="fas fa-motorcycle"></i> DoorDash
-                    </a>
-                    <a href="${reservationLinks.opentable}" target="_blank" rel="noopener noreferrer" class="popup-btn">
-                        <i class="fas fa-calendar-check"></i> OpenTable
-                    </a>
-                </div>
-                <div class="popup-social-links">
-                    <a href="${socialLinks.instagram}" target="_blank" rel="noopener noreferrer" class="social-link instagram" title="Instagram">
-                        <i class="fab fa-instagram"></i>
-                    </a>
-                    <a href="${socialLinks.facebook}" target="_blank" rel="noopener noreferrer" class="social-link facebook" title="Facebook">
-                        <i class="fab fa-facebook-f"></i>
-                    </a>
-                    <a href="${socialLinks.twitter}" target="_blank" rel="noopener noreferrer" class="social-link twitter" title="Twitter">
-                        <i class="fab fa-twitter"></i>
-                    </a>
-                </div>
-            </div>
-        `;
-    },
-
-    /**
-     * Pan map to a specific restaurant
-     * @param {number} lat - Latitude
-     * @param {number} lng - Longitude
-     */
-    panToRestaurant(lat, lng) {
-        if (!this.map) return;
-        
-        this._programmaticMove = true;
-        this.map.setView([lat, lng], 16, {
-            animate: true,
-            duration: 0.5
-        });
-    },
-
-    /**
-     * Open popup for a specific marker
-     * @param {string} restaurantId - Restaurant ID
-     * @param {Array} restaurants - Array of restaurant objects
-     */
-    openMarkerPopup(restaurantId, restaurants) {
-        const restaurant = restaurants.find(r => r.id === restaurantId);
-        if (!restaurant) return;
-
-        const markerIndex = restaurants.indexOf(restaurant);
-        if (markerIndex >= 0 && markerIndex < this.markers.length) {
-            const marker = this.markers[markerIndex];
-            marker.openPopup();
-            this.panToRestaurant(
-                restaurant.coordinates.latitude,
-                restaurant.coordinates.longitude
-            );
-        }
+  init() {
+    if (typeof L === "undefined") {
+      console.warn("Leaflet not loaded.");
+      return;
     }
+
+    this.map = L.map("map").setView([CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG], CONFIG.DEFAULT_ZOOM);
+
+    // Esri World Imagery (your original vibe)
+    L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      {
+        attribution:
+          "Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community",
+        maxZoom: 19
+      }
+    ).addTo(this.map);
+
+    this.addSearchAreaButton();
+
+    this.map.on("moveend", () => {
+      if (this.searchAreaBtn) this.searchAreaBtn.style.display = "block";
+    });
+  },
+
+  addSearchAreaButton() {
+    if (!this.map) return;
+    const self = this;
+
+    const SearchAreaControl = L.Control.extend({
+      options: { position: "topright" },
+      onAdd() {
+        const btn = L.DomUtil.create("button", "search-area-btn");
+        btn.innerHTML = '<i class="fas fa-search-location"></i> Search This Area';
+        btn.style.display = "none";
+        btn.onclick = (e) => {
+          L.DomEvent.stopPropagation(e);
+          self.searchCurrentArea();
+          btn.style.display = "none";
+        };
+        L.DomEvent.disableClickPropagation(btn);
+        self.searchAreaBtn = btn;
+        return btn;
+      }
+    });
+
+    this.map.addControl(new SearchAreaControl());
+  },
+
+  async searchCurrentArea() {
+    if (!this.map) return;
+    const c = this.map.getCenter();
+    this.setSearchCenter(c.lat, c.lng, "Map Center");
+  },
+
+  setSearchCenter(lat, lng, label = "Search Center") {
+    const latitude = Number(lat);
+    const longitude = Number(lng);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+
+    this.userLocation = { lat: latitude, lng: longitude };
+
+    if (this.map) this.map.setView([latitude, longitude], CONFIG.DEFAULT_ZOOM);
+
+    if (this.userMarker && this.map) {
+      try { this.map.removeLayer(this.userMarker); } catch {}
+    }
+
+    // blue marker
+    const userIcon = L.icon({
+      iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
+      shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
+
+    this.userMarker = L.marker([latitude, longitude], { icon: userIcon })
+      .addTo(this.map)
+      .bindPopup(`<strong>${label}</strong>`)
+      .openPopup();
+
+    // trigger app fetch
+    window.App?.onLocationReady?.(latitude, longitude, label);
+  },
+
+  requestUserLocation() {
+    if (!("geolocation" in navigator)) {
+      UI.toast("Geolocation not supported — using default location.", "warn");
+      this.setSearchCenter(CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG, "Default");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        this.setSearchCenter(pos.coords.latitude, pos.coords.longitude, "My Location");
+      },
+      (err) => {
+        console.warn("Geolocation error:", err);
+        UI.toast("Could not get location — using default.", "warn");
+        this.setSearchCenter(CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG, "Default");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  },
+
+  clearMarkers() {
+    if (!this.map) return;
+    for (const marker of this.markersById.values()) {
+      try { this.map.removeLayer(marker); } catch {}
+    }
+    this.markersById.clear();
+  },
+
+  addRestaurantMarkers(restaurants) {
+    if (!this.map) return;
+
+    this.clearMarkers();
+
+    restaurants.forEach((r) => {
+      const lat = r.coordinates?.latitude;
+      const lng = r.coordinates?.longitude;
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+      const icon = L.icon({
+        iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
+        shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+      });
+
+      const marker = L.marker([lat, lng], { icon })
+        .addTo(this.map)
+        .bindPopup(this.createPopupContent(r), { maxWidth: 360, minWidth: 280 });
+
+      marker.on("click", () => UI.highlightRestaurantCard(r.id));
+
+      this.markersById.set(r.id, marker);
+    });
+
+    // Fit bounds to markers + user marker
+    const layers = [...this.markersById.values()];
+    if (this.userMarker) layers.push(this.userMarker);
+    if (layers.length) {
+      const group = L.featureGroup(layers);
+      this.map.fitBounds(group.getBounds().pad(0.12));
+    }
+  },
+
+  openMarkerPopup(id) {
+    const marker = this.markersById.get(id);
+    if (!marker) return;
+    marker.openPopup();
+    const ll = marker.getLatLng();
+    this.map.setView(ll, 16, { animate: true, duration: 0.4 });
+  },
+
+  createPopupContent(r) {
+    const categories = (r.categories || []).map(c => c.title).join(", ");
+    const stars = API.getStarRating(r.rating);
+    const address = r.location ? [r.location.address1, r.location.city, r.location.state, r.location.zip_code].filter(Boolean).join(", ") : "";
+
+    const status =
+      r.open_now === true ? `<span class="badge open"><i class="fas fa-door-open"></i> Open</span>` :
+      r.open_now === false ? `<span class="badge closed"><i class="fas fa-door-closed"></i> Closed</span>` :
+      `<span class="badge warn"><i class="fas fa-clock"></i> Hours unknown</span>`;
+
+    const deliveryLinks = API.getDeliveryLinks(r.name, address);
+    const reservationLinks = API.getReservationLinks(r.name, r.location?.city);
+
+    const mapsLink = r.url || `https://www.google.com/maps/search/${encodeURIComponent(r.name + " " + (r.location?.city || ""))}`;
+    const website = r.website || "";
+
+    const reserveLink = r.reservable ? (website || reservationLinks.opentable) : "";
+
+    return `
+      <div class="popup-content">
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:1000; font-size:1.05rem;">${r.name}</div>
+            <div style="color:rgba(238,242,255,0.72); font-size:0.85rem;">${categories || ""}</div>
+            <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+              ${status}
+              ${r.price ? `<span class="badge"><i class="fas fa-dollar-sign"></i> ${r.price}</span>` : ""}
+              ${Number.isFinite(r.distance) ? `<span class="badge"><i class="fas fa-walking"></i> ${API.formatDistance(r.distance)}</span>` : ""}
+            </div>
+            <div style="margin-top:8px;">
+              <span class="stars">${stars}</span>
+              <span style="font-weight:900;"> ${Number(r.rating || 0).toFixed(1)}</span>
+              <span style="color:rgba(238,242,255,0.70);"> (${r.review_count || 0})</span>
+            </div>
+            <div style="margin-top:8px; color:rgba(238,242,255,0.72); font-size:0.85rem;">
+              <i class="fas fa-map-marker-alt"></i> ${address || "Address not available"}
+            </div>
+          </div>
+          ${r.image_url ? `<img src="${r.image_url}" alt="${r.name}" style="width:84px;height:84px;border-radius:14px;object-fit:cover;border:1px solid rgba(255,255,255,0.12)"/>` : ""}
+        </div>
+
+        <div class="popup-actions">
+          <a class="popup-btn primary" target="_blank" rel="noopener noreferrer" href="${mapsLink}">
+            <i class="fas fa-map"></i> Maps
+          </a>
+          ${website ? `
+            <a class="popup-btn" target="_blank" rel="noopener noreferrer" href="${website}">
+              <i class="fas fa-globe"></i> Website
+            </a>` : ""}
+          ${reserveLink ? `
+            <a class="popup-btn" target="_blank" rel="noopener noreferrer" href="${reserveLink}">
+              <i class="fas fa-calendar-check"></i> Reserve
+            </a>` : ""}
+          <a class="popup-btn" target="_blank" rel="noopener noreferrer" href="${deliveryLinks.ubereats}">
+            <i class="fas fa-hamburger"></i> Delivery
+          </a>
+        </div>
+      </div>
+    `;
+  }
 };
