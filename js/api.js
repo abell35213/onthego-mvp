@@ -184,12 +184,29 @@ END:VCALENDAR`;
     return 2 * R * Math.asin(Math.sqrt(a));
   },
 
-  getReservationLinks(name, city) {
-    const q = encodeURIComponent(`${name} ${city || ""}`.trim());
+  getReservationLinks(restaurantName, city) {
+    const term = [restaurantName, city].filter(Boolean).join(" ");
+    const encodedTerm = encodeURIComponent(term);
     return {
-      opentable: `https://www.opentable.com/s/?term=${q}`,
-      resy: `https://resy.com/cities/${encodeURIComponent((city || "all").toLowerCase())}?query=${q}`
+      opentable: `https://www.opentable.com/s?term=${encodedTerm}`,
+      resy: city
+        ? `https://resy.com/cities/${encodeURIComponent(city).toLowerCase()}?search=${encodeURIComponent(restaurantName)}`
+        : `https://resy.com/cities/sf?search=${encodeURIComponent(restaurantName)}`
     };
+  },
+
+  async askConcierge({ plan, message }) {
+    try {
+      const response = await fetch("/api/concierge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ plan, message })
+      });
+      if (!response.ok) throw new Error(`Concierge error: ${response.status}`);
+      return await response.json();
+    } catch (e) {
+      return { source: "fallback", text: "Concierge is unavailable right now. Try selecting 2 restaurants and I’ll suggest a primary + backup plan." };
+    }
   },
 
   // ===== User data hydration =====
