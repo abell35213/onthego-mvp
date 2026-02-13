@@ -64,5 +64,9 @@ const WorldMapModule = {
       // If user isn't in world view, don't run simulated nearby pins behavior
       return;
     }
+
+    if (typeof this.showNearbyRestaurants === "function") {
+      setTimeout(() => this.showNearbyRestaurants(id), 250);
+    }
   }
 };
