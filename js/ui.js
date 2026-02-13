@@ -1,6 +1,7 @@
 const UI = {
   all: [],
   filtered: [],
+  restaurants: [],
   preset: "client_dinner",
   collapsedSidebar: false,
   _noteTargetId: null,
@@ -110,6 +111,9 @@ const UI = {
     this.all = restaurants;
     this._populateCuisineFilter(this.all);
     this.applyFilters();
+    if (window.ConciergeDrawer) {
+      ConciergeDrawer.onRestaurantsUpdated(this.restaurants);
+    }
     this.updateShortlistBar();
   },
 
@@ -160,8 +164,12 @@ const UI = {
     }
 
     this.filtered = out;
+    this.restaurants = out;
     this.renderList(out);
     MapModule.addRestaurantMarkers(out);
+    if (window.ConciergeDrawer) {
+      ConciergeDrawer.onRestaurantsUpdated(this.restaurants);
+    }
     this.updateShortlistBar();
   },
 
@@ -317,6 +325,7 @@ const UI = {
       // Card click opens popup + loads route times
       card.addEventListener("click", async (e) => {
         if (e.target.closest("a") || e.target.closest("button")) return;
+        if (window.ConciergeDrawer) ConciergeDrawer.onFocusedRestaurant(r);
         MapModule.openMarkerPopup(r.id);
         await App.ensureRouteTimes(r.id);
         this.renderCardPartial(r.id);
