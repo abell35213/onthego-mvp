@@ -6,7 +6,6 @@ const WorldMapModule = {
     if (typeof L === "undefined") return;
 
     this.map = L.map("worldMap", { zoomControl: true }).setView([20, 0], 2);
-
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap contributors",
       maxZoom: 18
@@ -29,8 +28,6 @@ const WorldMapModule = {
 
     trips.forEach((t) => {
       const start = new Date(t.startDate);
-      const end = new Date(t.endDate);
-
       const isUpcoming = start > now;
 
       const card = document.createElement("div");
@@ -40,17 +37,15 @@ const WorldMapModule = {
         <div class="trip-sub">${t.city}, ${t.state} • ${t.startDate} → ${t.endDate}</div>
       `;
       card.addEventListener("click", () => App.openTrip(t.id));
-
       (isUpcoming ? upcomingEl : historyEl).appendChild(card);
 
-      // marker
       const m = L.marker([t.coordinates.latitude, t.coordinates.longitude]).addTo(this.map);
       m.bindPopup(`<strong>${t.hotel}</strong><br/>${t.city}, ${t.state}<br/><em>Click to search dining</em>`);
       m.on("click", () => App.openTrip(t.id));
       this.markers.push(m);
     });
 
-    if (trips.length) {
+    if (this.markers.length) {
       const group = L.featureGroup(this.markers);
       this.map.fitBounds(group.getBounds().pad(0.25));
     }
