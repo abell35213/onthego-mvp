@@ -195,17 +195,18 @@ END:VCALENDAR`;
     };
   },
 
-  async askConcierge({ plan, message }) {
+  async askConcierge(payload) {
     try {
-      const response = await fetch("/api/concierge", {
+      const res = await fetch("/api/concierge", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({ plan, message })
+        body: JSON.stringify(payload)
       });
-      if (!response.ok) throw new Error(`Concierge error: ${response.status}`);
-      return await response.json();
-    } catch (e) {
-      return { source: "fallback", text: "Concierge is unavailable right now. Try selecting 2 restaurants and I’ll suggest a primary + backup plan." };
+      if (!res.ok) throw new Error(`Concierge API error: ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      console.warn("askConcierge failed; returning null to allow local fallback.", err);
+      return null;
     }
   },
 
