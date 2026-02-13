@@ -166,7 +166,7 @@ const UI = {
   },
 
   sortRestaurants(restaurants, sortBy) {
-    const plan = (window.DinnerPlan && DinnerPlan.state) ? DinnerPlan.state : null;
+    const plan = (window.DinnerPlan && window.DinnerPlan.state) ? window.DinnerPlan.state : null;
 
     const score = (r) => {
       let s = (Number(r.rating) || 0) * 10;
