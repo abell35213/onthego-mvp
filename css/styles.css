@@ -679,7 +679,10 @@ body{
   color: var(--text-dark);
 }
 
-.plan-panel__title i { color: var(--primary-color); margin-right: 0.4rem; }
+.plan-panel__title i {
+  color: var(--primary-color);
+  margin-right: 0.4rem;
+}
 
 .plan-panel__hint {
   font-size: 0.8rem;
