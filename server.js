@@ -59,7 +59,7 @@ app.post('/api/yelp-search', async (req, res) => {
 
     const { latitude, longitude, radius, limit, categories, sort_by: sortBy } = req.body || {};
 
-    if (latitude === undefined || latitude === null || longitude === undefined || longitude === null) {
+    if (latitude == null || longitude == null) {
         return res.status(400).json({ error: 'latitude and longitude are required' });
     }
 
