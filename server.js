@@ -59,7 +59,7 @@ app.post('/api/yelp-search', async (req, res) => {
 
     const { latitude, longitude, radius, limit, categories, sort_by: sortBy } = req.body || {};
 
-    if (!latitude || !longitude) {
+    if (latitude == null || longitude == null) {
         return res.status(400).json({ error: 'latitude and longitude are required' });
     }
 
@@ -79,8 +79,8 @@ app.post('/api/yelp-search', async (req, res) => {
         return res.status(400).json({ error: 'radius must be a number between 1 and 40000' });
     }
 
-    if (hasLimit && (!Number.isFinite(limitValue) || limitValue <= 0)) {
-        return res.status(400).json({ error: 'limit must be a positive number' });
+    if (hasLimit && (!Number.isFinite(limitValue) || limitValue <= 0 || limitValue > 50)) {
+        return res.status(400).json({ error: 'limit must be a number between 1 and 50' });
     }
 
     const normalizedCategories = categories || DEFAULT_CATEGORIES;
