@@ -276,80 +276,9 @@
           <i class="fas fa-chevron-left"></i>
         </button>
 
-        <div class="location-controls">
-          <label for="tripLocationSelect" class="location-label">Search near:</label>
-          <select id="tripLocationSelect" class="filter-select location-select">
-            <option value="" disabled selected>Select a trip…</option>
-          </select>
-
-          <button id="useGpsBtn" class="location-btn">
-            <i class="fas fa-location-crosshairs"></i> Use My Location
-          </button>
-
+        <div class="sidebar-header">
+          <h2><i class="fas fa-utensils"></i> Recommended</h2>
           <div id="activeLocationLabel" class="active-location"></div>
-          <div id="timeHint" class="time-hint" style="display:none;"></div>
-
-          <div class="quick-chips" id="quickChips">
-            <button type="button" class="chip active" data-preset="client_dinner"><i class="fas fa-briefcase"></i> Client Dinner</button>
-            <button type="button" class="chip" data-preset="quick_lunch"><i class="fas fa-bolt"></i> Quick Lunch</button>
-            <button type="button" class="chip" data-preset="coffee"><i class="fas fa-mug-hot"></i> Coffee</button>
-            <button type="button" class="chip" data-preset="drinks"><i class="fas fa-martini-glass-citrus"></i> Drinks</button>
-          </div>
-        </div>
-
-        <div class="search-container">
-          <input type="text" id="searchInput" class="search-input"
-                 placeholder="Search by name, cuisine, city, state, or zip..." />
-          <i class="fas fa-search search-icon"></i>
-        </div>
-
-        <div class="filters">
-          <div class="filter-group">
-            <label for="cuisineFilter">Cuisine:</label>
-            <select id="cuisineFilter" class="filter-select">
-              <option value="">All Cuisines</option>
-            </select>
-          </div>
-
-          <div class="filter-group">
-            <label for="priceFilter">Price:</label>
-            <select id="priceFilter" class="filter-select">
-              <option value="">All Prices</option>
-              <option value="$">$ - Budget</option>
-              <option value="$$">$$ - Moderate</option>
-              <option value="$$$">$$$ - Expensive</option>
-              <option value="$$$$">$$$$ - Very Expensive</option>
-            </select>
-          </div>
-
-          <div class="filter-group">
-            <label for="ambianceFilter">Ambiance:</label>
-            <select id="ambianceFilter" class="filter-select">
-              <option value="">All Types</option>
-              <option value="Good for Business Meal">Business Meal</option>
-              <option value="Chill">Chill</option>
-              <option value="Fun">Fun</option>
-              <option value="Local Spots">Local Spots</option>
-            </select>
-          </div>
-
-          <div class="filter-group">
-            <label for="sortBy">Sort By:</label>
-            <select id="sortBy" class="filter-select">
-              <option value="client_score">Client Dinner Score</option>
-              <option value="rating">Rating</option>
-              <option value="distance">Distance</option>
-              <option value="review_count">Reviews</option>
-            </select>
-          </div>
-
-          <div class="filter-group">
-            <label><input type="checkbox" id="openNowFilter" class="filter-checkbox" /> Open now</label>
-          </div>
-
-          <div class="filter-group">
-            <label><input type="checkbox" id="visitedFilter" class="filter-checkbox" /> Show Only Visited</label>
-          </div>
         </div>
 
         <div id="restaurantList" class="restaurant-list">
@@ -378,8 +307,77 @@
         </div>
       </aside>
 
-      <div class="map-container">
-        <div id="map"></div>
+      <div class="map-area">
+        <div class="map-top-bar" id="mapTopBar">
+          <div class="map-top-bar-left">
+            <div class="location-controls-inline">
+              <select id="tripLocationSelect" class="filter-select location-select">
+                <option value="" disabled selected>Select a trip…</option>
+              </select>
+              <button id="useGpsBtn" class="location-btn-inline">
+                <i class="fas fa-location-crosshairs"></i>
+              </button>
+            </div>
+
+            <div class="quick-chips" id="quickChips">
+              <button type="button" class="chip active" data-preset="client_dinner"><i class="fas fa-briefcase"></i> Client Dinner</button>
+              <button type="button" class="chip" data-preset="quick_lunch"><i class="fas fa-bolt"></i> Quick Lunch</button>
+              <button type="button" class="chip" data-preset="coffee"><i class="fas fa-mug-hot"></i> Coffee</button>
+              <button type="button" class="chip" data-preset="drinks"><i class="fas fa-martini-glass-citrus"></i> Drinks</button>
+            </div>
+          </div>
+
+          <div class="map-top-bar-right">
+            <div class="search-container-inline">
+              <input type="text" id="searchInput" class="search-input-inline"
+                     placeholder="Search name, cuisine..." />
+              <i class="fas fa-search search-icon-inline"></i>
+            </div>
+
+            <select id="cuisineFilter" class="filter-select-inline">
+              <option value="">All Cuisines</option>
+            </select>
+
+            <select id="priceFilter" class="filter-select-inline">
+              <option value="">All Prices</option>
+              <option value="$">$</option>
+              <option value="$$">$$</option>
+              <option value="$$$">$$$</option>
+              <option value="$$$$">$$$$</option>
+            </select>
+
+            <select id="ambianceFilter" class="filter-select-inline">
+              <option value="">Ambiance</option>
+              <option value="Good for Business Meal">Business</option>
+              <option value="Chill">Chill</option>
+              <option value="Fun">Fun</option>
+              <option value="Local Spots">Local</option>
+            </select>
+
+            <select id="sortBy" class="filter-select-inline">
+              <option value="client_score">Score</option>
+              <option value="rating">Rating</option>
+              <option value="distance">Distance</option>
+              <option value="review_count">Reviews</option>
+            </select>
+
+            <label class="filter-toggle-inline" title="Open now only">
+              <input type="checkbox" id="openNowFilter" class="filter-checkbox" />
+              <span>Open</span>
+            </label>
+
+            <label class="filter-toggle-inline" title="Visited only">
+              <input type="checkbox" id="visitedFilter" class="filter-checkbox" />
+              <span>Visited</span>
+            </label>
+          </div>
+        </div>
+
+        <div id="timeHint" class="time-hint" style="display:none;"></div>
+
+        <div class="map-container">
+          <div id="map"></div>
+        </div>
       </div>
 
       <div id="conciergeDrawer" class="concierge-drawer" aria-hidden="true">

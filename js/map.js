@@ -229,6 +229,7 @@ const MapModule = {
   openMarkerPopup(id) {
     const marker = this.markersById.get(id);
     if (!marker) return;
+    this.map.invalidateSize();
     marker.openPopup();
     const ll = marker.getLatLng();
     this.map.setView(ll, 16, { animate: true, duration: 0.4 });
@@ -252,6 +253,12 @@ const MapModule = {
     const walk = rt?.walkSec ? Routing.formatDuration(rt.walkSec) : "";
     const drive = rt?.driveSec ? Routing.formatDuration(rt.driveSec) : "";
     const routeLine = (walk || drive) ? `${walk ? `🚶 ${walk}` : ""}${walk && drive ? " · " : ""}${drive ? `🚗 ${drive}` : ""}` : "Route times: loading…";
+
+    const social = r.social || {};
+    const popupSocial = [];
+    if (social.instagram) popupSocial.push(`<a class="popup-btn" target="_blank" rel="noopener noreferrer" href="https://www.instagram.com/${encodeURIComponent(social.instagram)}"><i class="fab fa-instagram"></i></a>`);
+    if (social.twitter) popupSocial.push(`<a class="popup-btn" target="_blank" rel="noopener noreferrer" href="https://twitter.com/${encodeURIComponent(social.twitter)}"><i class="fab fa-twitter"></i></a>`);
+    if (social.facebook) popupSocial.push(`<a class="popup-btn" target="_blank" rel="noopener noreferrer" href="https://www.facebook.com/${encodeURIComponent(social.facebook)}"><i class="fab fa-facebook"></i></a>`);
 
     return `
       <div class="popup-content">
@@ -303,6 +310,8 @@ const MapModule = {
           <a class="popup-btn" href="#" data-ics="${r.id}">
             <i class="fas fa-calendar-plus"></i> Calendar
           </a>
+
+          ${popupSocial.join("")}
         </div>
       </div>
     `;
