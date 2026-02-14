@@ -164,6 +164,11 @@ const App = {
       viewToggle.querySelector("span").textContent = "World View";
       viewToggle.querySelector("i").className = "fas fa-globe";
 
+      // Ensure Leaflet map resizes correctly after the container becomes visible
+      setTimeout(() => {
+        if (MapModule.map) MapModule.map.invalidateSize();
+      }, 50);
+
       // If location not set, default
       if (!MapModule.userLocation) MapModule.setSearchCenter(this.currentLat, this.currentLng, this.currentLabel);
 

@@ -47,10 +47,10 @@ const DinnerPlan = {
   },
 
   mountMiniPanel() {
-    // Inject a compact plan panel into the sidebar (above filters)
+    // Inject a compact plan panel into the sidebar (above restaurant list)
     const sidebar = document.getElementById('searchSidebar');
-    const filters = document.querySelector('.filters');
-    if (!sidebar || !filters) return;
+    const restaurantList = document.getElementById('restaurantList');
+    if (!sidebar || !restaurantList) return;
 
     const panel = document.createElement('section');
     panel.className = 'plan-panel';
@@ -103,7 +103,7 @@ const DinnerPlan = {
       </div>
     `;
 
-    filters.parentNode.insertBefore(panel, filters);
+    restaurantList.parentNode.insertBefore(panel, restaurantList);
 
     // hydrate inputs
     const $ = (id) => document.getElementById(id);
