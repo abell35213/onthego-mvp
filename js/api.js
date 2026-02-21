@@ -238,10 +238,10 @@ END:VCALENDAR`;
 
   _mockRestaurants(lat, lng) {
     const base = [
-      { name: "The Executive Table", price: "$$$", rating: 4.6, review_count: 842, tags: ["Good for Business Meal"], open_now: true, reservable: true, goodForGroups: true, dineIn: true, liveMusic: false, servesCocktails: true, categories: [{ title: "Steakhouse" }] },
-      { name: "Neighborhood Noodles", price: "$$", rating: 4.4, review_count: 513, tags: ["Local Spots"], open_now: true, reservable: false, goodForGroups: false, dineIn: true, liveMusic: false, servesCocktails: false, categories: [{ title: "Asian" }] },
-      { name: "Rooftop Lounge", price: "$$$", rating: 4.3, review_count: 392, tags: ["Fun"], open_now: false, reservable: true, goodForGroups: true, dineIn: true, liveMusic: true, servesCocktails: true, categories: [{ title: "Bar" }] },
-      { name: "Garden Cafe", price: "$", rating: 4.5, review_count: 201, tags: ["Chill"], open_now: true, reservable: false, goodForGroups: false, dineIn: true, liveMusic: false, servesCocktails: false, categories: [{ title: "Cafe" }] }
+      { name: "The Executive Table", price: "$$$", rating: 4.6, review_count: 842, tags: ["Good for Business Meal"], open_now: true, reservable: true, goodForGroups: true, dineIn: true, liveMusic: false, servesCocktails: true, categories: [{ title: "Steakhouse" }], social: { instagram: "theexecutivetable", twitter: "exectable", facebook: "theexecutivetable" } },
+      { name: "Neighborhood Noodles", price: "$$", rating: 4.4, review_count: 513, tags: ["Local Spots"], open_now: true, reservable: false, goodForGroups: false, dineIn: true, liveMusic: false, servesCocktails: false, categories: [{ title: "Asian" }], social: { instagram: "neighborhoodnoodles", facebook: "neighborhoodnoodles" } },
+      { name: "Rooftop Lounge", price: "$$$", rating: 4.3, review_count: 392, tags: ["Fun"], open_now: false, reservable: true, goodForGroups: true, dineIn: true, liveMusic: true, servesCocktails: true, categories: [{ title: "Bar" }], social: { instagram: "rooftoplounge", twitter: "rooftoplounge", facebook: "rooftoplounge" } },
+      { name: "Garden Cafe", price: "$", rating: 4.5, review_count: 201, tags: ["Chill"], open_now: true, reservable: false, goodForGroups: false, dineIn: true, liveMusic: false, servesCocktails: false, categories: [{ title: "Cafe" }], social: { instagram: "gardencafe" } }
     ];
 
     return base.map((r, i) => {

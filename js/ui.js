@@ -262,6 +262,19 @@ const UI = {
 
       const noteHas = !!(r.note && r.note.trim().length);
 
+      const social = r.social || {};
+      const socialLinks = [];
+      if (social.instagram) socialLinks.push(`<a class="social-link instagram" href="https://www.instagram.com/${encodeURIComponent(social.instagram)}" target="_blank" rel="noopener noreferrer" title="Instagram"><i class="fab fa-instagram"></i></a>`);
+      if (social.twitter) socialLinks.push(`<a class="social-link twitter" href="https://twitter.com/${encodeURIComponent(social.twitter)}" target="_blank" rel="noopener noreferrer" title="Twitter"><i class="fab fa-twitter"></i></a>`);
+      if (social.facebook) socialLinks.push(`<a class="social-link facebook" href="https://www.facebook.com/${encodeURIComponent(social.facebook)}" target="_blank" rel="noopener noreferrer" title="Facebook"><i class="fab fa-facebook"></i></a>`);
+
+      const igSection = social.instagram ? `
+        <div class="ig-embed-section">
+          <a href="https://www.instagram.com/${encodeURIComponent(social.instagram)}" target="_blank" rel="noopener noreferrer" class="ig-preview-link">
+            <i class="fab fa-instagram"></i> View recent posts @${social.instagram}
+          </a>
+        </div>` : "";
+
       card.innerHTML = `
         <div class="card-float-actions">
           <button class="icon-pill ${r.shortlisted ? "active" : ""}" type="button" data-star="${r.id}">
@@ -314,6 +327,9 @@ const UI = {
               <i class="fas fa-calendar-plus"></i> Calendar
             </button>
           </div>
+
+          ${socialLinks.length ? `<div class="social-links-row">${socialLinks.join("")}</div>` : ""}
+          ${igSection}
 
           <button class="visit-toggle ${r.visited ? "visited" : ""}" type="button" data-visit="${r.id}">
             <i class="fas ${r.visited ? "fa-check" : "fa-bookmark"}"></i>
